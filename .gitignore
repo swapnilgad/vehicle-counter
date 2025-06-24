@@ -1,0 +1,13 @@
+# Ignore unnecessary or large folders/files
+venv/
+datasets/
+runs/
+*.pt
+*.db
+__pycache__/
+logs/
+*.log
+*.zip
+*.tar
+*.tar.gz
+build_output.txt

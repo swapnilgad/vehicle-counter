@@ -1,0 +1,208 @@
+<!-- This is the main HTML template for displaying live vehicle count data -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Vehicle Dashboard</title>
+
+  <!-- Load Chart.js library to render charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Inline CSS styling for layout and design -->
+  <style>
+    /* Base styling for the body */
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+
+    /* Header bar styling */
+    header {
+      background: #007BFF;
+      color: white;
+      padding: 1rem 2rem;
+      text-align: center;
+    }
+
+    /* Main dashboard container */
+    .dashboard {
+      padding: 2rem;
+    }
+
+    /* Container for statistic cards */
+    .cards {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    /* Individual statistic card */
+    .card {
+      flex: 1;
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      text-align: center;
+      min-width: 200px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 2rem;
+      color: #007BFF;
+    }
+
+    .card p {
+      margin: 0.5rem 0 0;
+    }
+
+    /* Container for chart canvases */
+    .charts {
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* Chart canvas styling */
+    canvas {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Page title -->
+  <header>
+    <h1>Live Vehicle Count Dashboard</h1>
+  </header>
+
+  <!-- Main dashboard layout -->
+  <div class="dashboard">
+    
+    <!-- Live data summary cards -->
+    <div class="cards">
+      <div class="card">
+        <h2 id="countToday">0</h2>
+        <p>Total Today</p>
+      </div>
+      <div class="card">
+        <h2 id="countWeek">0</h2>
+        <p>Total This Week</p>
+      </div>
+      <div class="card">
+        <h2 id="peakHour">00</h2>
+        <p>Peak Hour</p>
+      </div>
+      <div class="card">
+        <h2 id="currentHourCount">0</h2>
+        <p>Current Hour Traffic</p>
+      </div>
+    </div>
+
+    <!-- Charts section -->
+    <div class="charts">
+      <canvas id="hourlyChart"></canvas>  <!-- Hour-wise bar chart -->
+      <canvas id="dailyChart"></canvas>   <!-- Day-wise line chart -->
+    </div>
+  </div>
+
+  <!-- JavaScript for fetching and rendering live data -->
+  <script>
+    // Fetch total_today, total_week and peak_hour from backend
+    async function fetchSummary() {
+      const res = await fetch('/api/traffic/summary');
+      const data = await res.json();
+      document.getElementById('countToday').textContent = data.total_today;
+      document.getElementById('countWeek').textContent = data.total_week;
+      document.getElementById('peakHour').textContent = data.peak_hour;
+    }
+
+    // Fetch count for the current hour only
+    async function fetchRealtime() {
+      const res = await fetch('/api/traffic/realtime');
+      const data = await res.json();
+      document.getElementById('currentHourCount').textContent = data.count;
+    }
+
+    // Draw hourly chart showing traffic per hour
+    async function drawHourlyChart() {
+      const res = await fetch('/api/traffic/hourly');
+      const data = await res.json();
+      const labels = Object.keys(data);       // Hours (e.g., 09, 10, 11)
+      const counts = Object.values(data);     // Counts per hour
+
+      const ctx = document.getElementById('hourlyChart').getContext('2d');
+      if (window.hourChart) window.hourChart.destroy();  // Avoid duplicate chart
+      window.hourChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Hourly Traffic',
+            data: counts,
+            backgroundColor: '#007BFF'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // Draw daily chart showing past 7 days of traffic
+    async function drawDailyChart() {
+      const res = await fetch('/api/traffic/daily');
+      const data = await res.json();
+      const labels = Object.keys(data).reverse();   // Dates
+      const counts = Object.values(data).reverse(); // Counts per day
+
+      const ctx = document.getElementById('dailyChart').getContext('2d');
+      if (window.dayChart) window.dayChart.destroy();
+      window.dayChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Daily Traffic',
+            data: counts,
+            borderColor: '#28A745',
+            backgroundColor: 'rgba(40,167,69,0.1)',
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // Combine all update functions to refresh the dashboard
+    async function refreshAll() {
+      await fetchSummary();     // Update total & peak stats
+      await fetchRealtime();    // Update current hour count
+      await drawHourlyChart();  // Update hourly chart
+      await drawDailyChart();   // Update daily chart
+    }
+
+    // Initial load
+    refreshAll();
+
+    // Auto-refresh every 5 seconds
+    setInterval(refreshAll, 5000);
+  </script>
+</body>
+</html>
